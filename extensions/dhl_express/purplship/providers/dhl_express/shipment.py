@@ -78,7 +78,10 @@ def shipment_request(
 ) -> Serializable[DHLShipmentRequest]:
     packages = Packages(payload.parcels, PackagePresets, required=["weight"])
     options = Options(payload.options, SpecialServiceCode)
-    product = ProductCode[payload.service].value
+    product = next(
+        (p.value for p in ProductCode if payload.service == p.name),
+        payload.service
+    )
 
     insurance = options['dhl_shipment_insurance'].value if 'dhl_shipment_insurance' in options else None
     package_type = (
@@ -91,6 +94,7 @@ def shipment_request(
     label_format, label_template = LabelType[payload.label_type or 'PDF_6x4'].value
     payment = (payload.payment or Payment(paid_by="sender", account_number=settings.account_number))
     customs = (payload.customs or Customs())
+    content = (packages[0].parcel.content or "N/A")
 
     request = DHLShipmentRequest(
         schemaVersion=6.2,
@@ -110,7 +114,7 @@ def shipment_request(
             DutyPaymentType=(PaymentType[customs.duty.paid_by].value if customs.duty is not None else None),
         ),
         Consignee=Consignee(
-            CompanyName=payload.recipient.company_name or "  ",
+            CompanyName=payload.recipient.company_name or "N/A",
             SuiteDepartmentName=None,
             AddressLine=SF.concat_str(
                 payload.recipient.address_line1, payload.recipient.address_line2
@@ -141,12 +145,12 @@ def shipment_request(
         ),
         NewShipper=None,
         Shipper=Shipper(
-            ShipperID=settings.account_number or "  ",
+            ShipperID=settings.account_number or "N/A",
             RegisteredAccount=settings.account_number,
             AddressLine=SF.concat_str(
                 payload.shipper.address_line1, payload.shipper.address_line2
             ),
-            CompanyName=payload.shipper.company_name or "  ",
+            CompanyName=payload.shipper.company_name or "N/A",
             PostalCode=payload.shipper.postal_code,
             CountryCode=payload.shipper.country_code,
             City=payload.shipper.city,
@@ -166,7 +170,7 @@ def shipment_request(
             Pieces=Pieces(
                 Piece=[
                     Piece(
-                        PieceID=payload.parcels[index].id,
+                        PieceID=package.parcel.id,
                         PackageType=(
                             package_type
                             or PackageType[
@@ -178,9 +182,11 @@ def shipment_request(
                         Height=package.height.IN,
                         Weight=package.weight.LB,
                         DimWeight=None,
-                        PieceContents=payload.parcels[index].description,
+                        PieceContents=(
+                            package.parcel.content or package.parcel.description
+                        ),
                     )
-                    for index, package in enumerate(packages)
+                    for package in packages
                 ]
             ),
             Weight=packages.weight.LB,
@@ -195,7 +201,7 @@ def shipment_request(
             DoorTo=delivery_type,
             GlobalProductCode=product,
             LocalProductCode=product,
-            Contents="  ",
+            Contents=content,
         ),
         EProcShip=None,
         Dutiable=(

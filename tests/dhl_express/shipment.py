@@ -260,7 +260,7 @@ ShipmentRequestXml = f"""<req:ShipmentRequest xmlns:req="http://www.dhl.com" xml
         <GlobalProductCode>P</GlobalProductCode>
         <LocalProductCode>P</LocalProductCode>
         
-        <Contents>  </Contents>
+        <Contents>N/A</Contents>
         <DimensionUnit>I</DimensionUnit>
         <InsuredAmount>148.</InsuredAmount>
         <PackageType>EE</PackageType>
